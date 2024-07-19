@@ -32,7 +32,11 @@ def process_file(file_path):
 
 
 def load_ijcnn1(file_path):
-    """function to import and preprocess IJCNN dataset"""
+    """
+    Function to import and preprocess IJCNN1 dataset
+    :param file_path: path to file containing datasets
+    :return: torch DataLoader object containing dataset
+    """
     try:
         # if dataset already processed and saved as numpy array, array is loaded from npy
         data = np.load(file_path + ".npy")
@@ -48,8 +52,8 @@ def load_ijcnn1(file_path):
 def load_mnist(batch_size=32):
     transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
-    mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-    mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+    mnist_trainset = datasets.MNIST(root='../data', train=True, download=True, transform=transform)
+    mnist_testset = datasets.MNIST(root='../data', train=False, download=True, transform=transform)
 
     trainloader = torch.utils.data.DataLoader(mnist_trainset, batch_size=batch_size, shuffle=True, num_workers=2)
 
