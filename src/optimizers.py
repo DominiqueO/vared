@@ -1,5 +1,6 @@
 import torch
 from torch.optim.optimizer import Optimizer, required
+import copy
 
 
 class SAGA(Optimizer):
@@ -58,61 +59,128 @@ class SVRG(Optimizer):
        based on doi:10.5555/2999611.2999647
     """
 
-    def __init__(self, params, lr=required):
-        # Perform checks on parameters
-        if lr is not required and lr < 0.0:
+    def __init__(self, params, lr=0.01, epoch_size=None):
+        if lr <= 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
 
-        defaults = dict(lr=lr)
+        if epoch_size is not None and epoch_size <= 0:
+            raise ValueError("Invalid epoch size: {}".format(epoch_size))
+
+        defaults = dict(lr=lr, epoch_size=epoch_size)
         super(SVRG, self).__init__(params, defaults)
 
-        # Store a snapshot of the parameters and the full gradient
-        self.snapshot = [torch.zeros_like(p.data) for p in self.param_groups[0]['params']]
-        self.full_grad = [torch.zeros_like(p.data) for p in self.param_groups[0]['params']]
-
     def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            loss = closure()
+        """Performs a single optimization step."""
+        if closure is None:
+            raise ValueError("SVRG requires a closure to reevaluate the model and compute the loss")
 
-        for group, snapshot, full_grad in zip(self.param_groups, self.snapshot, self.full_grad):
+        loss = closure()
+
+        for group in self.param_groups:
             lr = group['lr']
-            for p, s, g in zip(group['params'], snapshot, full_grad):
-                if p.grad is None:
-                    continue
+            epoch_size = group['epoch_size']
+            params_with_grad = []
+            grads = []
+            states = []
 
-                grad = p.grad.data
+            # Collect parameters and their gradients
+            for p in group['params']:
+                if p.grad is not None:
+                    params_with_grad.append(p)
+                    grads.append(p.grad.data)
+                    states.append(copy.deepcopy(p.data))
 
-                # SVRG update rule
-                p.data.add_(-lr * (grad - p.svrg_stored_grad + g))
+            # Compute the full gradient
+            if self._state['full_grad'] is None:
+                self._state['full_grad'] = []
+                for p in params_with_grad:
+                    self._state['full_grad'].append(torch.zeros_like(p.data))
+
+            full_grad = self._state['full_grad']
+            for i, p in enumerate(params_with_grad):
+                full_grad[i].zero_()
+                full_grad[i].add_(p.grad.data)
+
+            for i in range(epoch_size):
+                def closure():
+                    # Recompute the loss and gradient
+                    loss = closure()
+                    return loss
+
+                # Compute the snapshot gradient
+                snapshot_grads = []
+                for p, g in zip(params_with_grad, grads):
+                    snapshot_grads.append(copy.deepcopy(g))
+
+                # Update parameters
+                for j, p in enumerate(params_with_grad):
+                    p.data = states[j] - lr * (snapshot_grads[j] - full_grad[j] + grads[j])
 
         return loss
 
-    def update_snapshot(self, model):
-        """Update the snapshot and compute the full gradient."""
-        for group, snapshot in zip(self.param_groups, self.snapshot):
-            for p, s in zip(group['params'], snapshot):
-                s.copy_(p.data)
-
-        # Compute the full gradient and store it
-        self.zero_grad()
-        model.zero_grad()
-        model_output = model.forward(model.input_data)
-        model.loss(model_output, model.target_data).backward()
-
-        for group, full_grad in zip(self.param_groups, self.full_grad):
-            for p, g in zip(group['params'], full_grad):
-                if p.grad is not None:
-                    g.copy_(p.grad.data)
-
-    def store_grad(self):
-        """Store the current gradient for variance reduction."""
+    def zero_grad(self):
+        """Clears the gradients of all optimized parameters."""
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is not None:
-                    if not hasattr(p, 'svrg_stored_grad'):
-                        p.svrg_stored_grad = torch.zeros_like(p.grad.data)
-                    p.svrg_stored_grad.copy_(p.grad.data)
+                    p.grad.detach_()
+                    p.grad.zero_()
+
+    # def __init__(self, params, lr=required):
+    #     # Perform checks on parameters
+    #     if lr is not required and lr < 0.0:
+    #         raise ValueError("Invalid learning rate: {}".format(lr))
+    #
+    #     defaults = dict(lr=lr)
+    #     super(SVRG, self).__init__(params, defaults)
+    #
+    #     # Store a snapshot of the parameters and the full gradient
+    #     self.snapshot = [torch.zeros_like(p.data) for p in self.param_groups[0]['params']]
+    #     self.full_grad = [torch.zeros_like(p.data) for p in self.param_groups[0]['params']]
+    #
+    # def step(self, closure=None):
+    #     loss = None
+    #     if closure is not None:
+    #         loss = closure()
+    #
+    #     for group, snapshot, full_grad in zip(self.param_groups, self.snapshot, self.full_grad):
+    #         lr = group['lr']
+    #         for p, s, g in zip(group['params'], snapshot, full_grad):
+    #             if p.grad is None:
+    #                 continue
+    #
+    #             grad = p.grad.data
+    #
+    #             # SVRG update rule
+    #             p.data.add_(-lr * (grad - p.svrg_stored_grad + g))
+    #
+    #     return loss
+    #
+    # def update_snapshot(self, model):
+    #     """Update the snapshot and compute the full gradient."""
+    #     for group, snapshot in zip(self.param_groups, self.snapshot):
+    #         for p, s in zip(group['params'], snapshot):
+    #             s.copy_(p.data)
+    #
+    #     # Compute the full gradient and store it
+    #     self.zero_grad()
+    #     model.zero_grad()
+    #     model_output = model.forward(model.input_data)
+    #     model.loss(model_output, model.target_data).backward()
+    #
+    #     for group, full_grad in zip(self.param_groups, self.full_grad):
+    #         for p, g in zip(group['params'], full_grad):
+    #             if p.grad is not None:
+    #                 g.copy_(p.grad.data)
+    #
+    # def store_grad(self):
+    #     """Store the current gradient for variance reduction."""
+    #     for group in self.param_groups:
+    #         for p in group['params']:
+    #             if p.grad is not None:
+    #                 if not hasattr(p, 'svrg_stored_grad'):
+    #                     p.svrg_stored_grad = torch.zeros_like(p.grad.data)
+    #                 p.svrg_stored_grad.copy_(p.grad.data)
 
 
 class SAG(Optimizer):
