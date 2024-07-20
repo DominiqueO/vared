@@ -46,8 +46,9 @@ def process_file(file_path):
 def load_ijcnn1_to_numpy(file_path):
     """
     Function to import and preprocess IJCNN1 dataset
+    if dataset not yet saved as .npy, dataset will be saved in "file_path"
     :param file_path: path to file containing datasets
-    :return: torch DataLoader object containing dataset
+    :return: numpy array containing dataset
     """
     try:
         # if dataset already processed and saved as numpy array, array is loaded from npy
@@ -61,11 +62,19 @@ def load_ijcnn1_to_numpy(file_path):
     return data
 
 def load_ijcnn1_to_dataloader(file_path, batch_size=32, shuffle=False):
+    """
+    Converts dataset for binary classification (specifically IJCNN1) to torch dataloader
+    :param file_path: path to dataset
+    :param batch_size: batch size (for processing of data, same meaning as for torch dtaloader object)
+    :param shuffle: if True, processing order of data is shuffled to avoid overfitting, default False
+    :return: torch dataloader
+    """
     data = load_ijcnn1_to_numpy(file_path)
     labels = torch.tensor(data[:, 0], dtype=torch.float32)
     features = torch.tensor(data[:, 1:], dtype=torch.float32)
     torch_dataset = BinaryClassificationDataset(features, labels)
     dataloader = DataLoader(torch_dataset, batch_size=batch_size, shuffle=shuffle)
+    return dataloader
 
 
 
