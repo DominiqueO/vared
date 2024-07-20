@@ -14,10 +14,9 @@ from losses import RegCrossEntropyLoss
 device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-
-
 def train_nn(trainloader, testloader, model, criterion, optimizer, epochs, device='cpu'):
-    """Train neural network model
+    """
+    Train neural network model
     """
 
     network = model.to(device)
@@ -89,16 +88,16 @@ if __name__ == "__main__":
     # load data
     # IJCNN1
     dirData1 = "../data/ijcnn1/ijcnn1"
-    testData1 = datahelper.load_ijcnn1(dirData1 + ".t")
-    trainData1 = datahelper.load_ijcnn1(dirData1 + ".tr")
-    # CoverType
+    ijcnn1_testloader = datahelper.load_ijcnn1_to_dataloader(dirData1 + ".t", batch_size=32, shuffle=False)
+    ijcnn1_trainloader = datahelper.load_ijcnn1_to_dataloader(dirData1 + ".tr", batch_size=32, shuffle=True)
 
     # MNIST
     mnist_trainloader, mnist_testloader = datahelper.load_mnist()
 
     # CNN with MNIST and SAGA
     cnn_model = models.CNN_simple()
-    optimizer = torch.optim.SGD(cnn_model.parameters(), lr=1e-3)
+    # optimizer = torch.optim.SGD(cnn_model.parameters(), lr=1e-3)
+    optimizer = optimizers.SAGA(cnn_model.parameters(), lr=1e-3)
     criterion = torch.nn.CrossEntropyLoss()
     network, ep_range, loss_list, acc_list = train_nn(mnist_trainloader, mnist_testloader, cnn_model, criterion,
                                                       optimizer, epochs=10, device=device)
