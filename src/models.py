@@ -20,7 +20,7 @@ class LogReg(nn.Module):
 
     def forward(self, x):
         """
-        forward pass for logistic regression classifier
+        Forward pass for logistic regression classifier
         :param x: feature vector
         :return: prediction
         """
@@ -28,9 +28,36 @@ class LogReg(nn.Module):
         return y_pred
 
 
-class Perceptron():
-    """Perceptron for binary classification"""
-    ...
+class MLP(nn.Module):
+    """
+    Multilayer Perceptron model (one hidden layer)
+    """
+    def __init__(self, input_dim, output_dim):
+        """
+        Constructor for multilayer perceptron
+        :param input_dim: number of features (input dimension)
+        :param output_dim: number of classes
+        """
+        super().__init__()
+
+        self.input_fc = nn.Linear(input_dim, 250)
+        self.hidden_fc = nn.Linear(250, 100)
+        self.output_fc = nn.Linear(100, output_dim)
+
+    def forward(self, x):
+        """
+        Forward pass for MLP
+        :param x: input
+        :return: prediction
+        """
+
+        batch_size = x.shape[0]
+        x = x.view(batch_size, -1)
+        h_1 = F.relu(self.input_fc(x))
+        h_2 = F.relu(self.hidden_fc(h_1))
+        y_pred = self.output_fc(h_2)
+
+        return y_pred
 
 
 class SVM():
@@ -38,7 +65,7 @@ class SVM():
 
 
 class CNN_simple(nn.Module):
-    """Simple convolutional neural network for multiclass classification"""
+    """Simple convolutional neural network for multiclass classification of MNIST dataset"""
 
     def __init__(self):
         super(CNN_simple, self).__init__()
