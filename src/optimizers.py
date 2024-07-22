@@ -426,6 +426,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
 
     # Initialization: populate gradient tables and perform initial SGD step
     grad_history = []
+    batch_loss = []
     for i, data in enumerate(trainloader, 0):
         inputs, labels = data
         # zero gradients
@@ -434,6 +435,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         loss = criterion(outputs, labels)
         # Compute average gradients over batch
         loss.backward()
+        batch_loss.append(loss.item())
         # Because gradients have to be computed anyway, model is preoptimized
         optimizer.step()
         accumulated_gradient_passes += 1
@@ -441,6 +443,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         grad_history.append(grads)
 
     accumulated_gradient_passes_list.append(accumulated_gradient_passes)
+    loss_list.append(np.mean(batch_loss))
 
     # Compute average of batch tensors
     grad_average = get_param_averages(grad_history)
@@ -534,6 +537,7 @@ def get_param_averages(gradients_list):
 
 
 def saga_step(params, grad_average, grad_history, index, number_of_batches, lr=1e-3):
+    factor = 1 / number_of_batches
     with torch.no_grad():
         for k, p in enumerate(params, 0):
             if p.grad is not None:
@@ -543,7 +547,7 @@ def saga_step(params, grad_average, grad_history, index, number_of_batches, lr=1
                 # SAGA update
                 p.add_(grad - old_grad + grad_average[k], alpha=-lr)
                 # Update average gradient
-                grad_average[k].add_( grad.mul_(1/number_of_batches) - old_grad.mul_(1/number_of_batches) )
+                grad_average[k].add_(grad.mul_(factor) - old_grad.mul_(factor) )
     return
 
 
