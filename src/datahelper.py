@@ -78,10 +78,10 @@ def load_ijcnn1_to_dataloader(file_path, batch_size=32, shuffle=False):
 
 
 
-def load_mnist(batch_size=32):
+def load_mnist(batch_size=32, shuffle=False):
     transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
-    mnist_trainset = datasets.MNIST(root='../data', train=True, download=True, transform=transform)
+    mnist_trainset = datasets.MNIST(root='../data', train=shuffle, download=True, transform=transform)
     mnist_testset = datasets.MNIST(root='../data', train=False, download=True, transform=transform)
 
     trainloader = DataLoader(mnist_trainset, batch_size=batch_size, shuffle=True, num_workers=2)
