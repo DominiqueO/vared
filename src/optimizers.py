@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer, required, _use_grad_for_differentiable
@@ -336,7 +338,7 @@ class SAGA2(Optimizer):
         return loss
 
 
-def train_standard(trainloader, testloader, model, criterion, optimizer, epochs, device='cpu'):
+def train_standard(trainloader, testloader, model, criterion, optimizer, epochs, lr=1e-3, device='cpu', prefix=''):
     """
     Train neural network model
     """
@@ -347,6 +349,9 @@ def train_standard(trainloader, testloader, model, criterion, optimizer, epochs,
 
     loss_list = []
     acc_list = []
+    # Store total number of gradient evaluations to compare optimization methods
+    accumulated_gradient_passes = 0
+    accumulated_gradient_passes_list = []
 
     for epoch in range(epochs):
 
@@ -360,9 +365,12 @@ def train_standard(trainloader, testloader, model, criterion, optimizer, epochs,
             loss = criterion(outputs, labels)
             batch_loss.append(loss.item())
             loss.backward()
+            accumulated_gradient_passes += 1
             optimizer.step()
 
+        print("Loss: {}".format(np.mean(batch_loss)))
         loss_list.append(np.mean(batch_loss))
+        accumulated_gradient_passes_list.append(accumulated_gradient_passes)
 
         # Validate all classes
         acc_total = 0
@@ -388,14 +396,14 @@ def train_standard(trainloader, testloader, model, criterion, optimizer, epochs,
 
         # revert model to training mode
         network.train()
-        # Save the model
 
-        torch.save(network.state_dict(), '../modelParams/mnist_epoch_{}_acc_{}.pth'.format(epoch + 1, acc_total))
+    # Save the model
+    torch.save(network.state_dict(), '../modelParams/{}_{}_acc_{}.pth'.format(prefix, epoch + 1, acc_total))
 
     # plot loss and accuracy
     ep_range = np.arange(1, epochs + 1)
 
-    return network, ep_range, loss_list, acc_list
+    return network, ep_range, loss_list, acc_list, accumulated_gradient_passes_list
 
 
 def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, criterion, epochs: int, lr=1e-3,
@@ -421,7 +429,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
     for i, data in enumerate(trainloader, 0):
         inputs, labels = data
         # zero gradients
-        optimizer.zero_grad()
+        network.zero_grad()
         outputs = network(inputs.to(device))
         loss = criterion(outputs, labels)
         # Compute average gradients over batch
@@ -444,16 +452,18 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         ik = np.random.randint(low=0, high=number_of_batches)
 
         inputs, labels = get_batch_by_index(trainloader, ik)
-        optimizer.zero_grad()
+        network.zero_grad()
         outputs = network(inputs.to(device))
         loss = criterion(outputs, labels)
         loss_list.append(loss.item())
-        print("Loss: {}".format(loss.item()))
         loss.backward()
         accumulated_gradient_passes += 1
 
         # SAGA update rule (update parameters and gradient average)
-        saga_step(model.parameters(), grad_average, grad_history, ik, lr=lr)
+        saga_step(network.parameters(), grad_average, grad_history, ik, number_of_batches, lr=lr)
+        # print(next(network.parameters()))
+
+        print("Loss: {}".format(loss.item()))
 
         # Validate all classes
         acc_total = 0
@@ -482,7 +492,10 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         network.train()
         # Save the model
 
-        torch.save(network.state_dict(), '../modelParams/{}_epoch_{}_acc_{}.pth'.format(prefix, epoch + 1, acc_total))
+        # torch.save(network.state_dict(), '../modelParams/{}_epoch_{}_acc_{}.pth'.format(prefix, epoch + 1, acc_total))
+
+    # Save the model
+    torch.save(network.state_dict(), '../modelParams/{}_epoch_{}_acc_{}.pth'.format(prefix, epoch + 1, acc_total))
 
     # plot loss and accuracy
     ep_range = np.arange(1, epochs + 1)
@@ -520,18 +533,19 @@ def get_param_averages(gradients_list):
 
 
 
-def saga_step(params, grad_average, grad_history, index, lr=1e-3):
-    grad_list = []
-    for k, p in enumerate(params, 0):
-        if p is not None:
-            grad = p.grad
-            old_grad = grad_history[index][k]
-            grad_history[index][k].copy_(grad)
-            # SAGA update
-            p.detach().add_(grad - old_grad + grad_average[k], alpha=-lr)
-            # Update average gradient
-            grad_average[k].add_(grad - old_grad)
+def saga_step(params, grad_average, grad_history, index, number_of_batches, lr=1e-3):
+    with torch.no_grad():
+        for k, p in enumerate(params, 0):
+            if p.grad is not None:
+                grad = p.grad
+                old_grad = grad_history[index][k]
+                grad_history[index][k].copy_(grad)
+                # SAGA update
+                p.add_(grad - old_grad + grad_average[k], alpha=-lr)
+                # Update average gradient
+                grad_average[k].add_( grad.mul_(1/number_of_batches) - old_grad.mul_(1/number_of_batches) )
     return
+
 
 def get_batch_by_index(data_loader, batch_index):
     for idx, batch in enumerate(data_loader):

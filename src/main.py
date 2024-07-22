@@ -33,14 +33,19 @@ if __name__ == "__main__":
     ijcnn1_trainloader = datahelper.load_ijcnn1_to_dataloader(dirData1 + ".tr", batch_size=32, shuffle=False)
 
     # MNIST
-    mnist_trainloader, mnist_testloader = datahelper.load_mnist()
+    mnist_trainloader, mnist_testloader = datahelper.load_mnist(batch_size=32, shuffle=False)
 
     # CNN with MNIST and SAGA
     cnn_model = models.CNN_simple()
-    optimizer = torch.optim.SGD(cnn_model.parameters(), lr=1e-3)
+    optimizer = torch.optim.SGD(cnn_model.parameters(), lr=0.1)
     # optimizer = optimizers.SAGA(cnn_model.parameters(), lr=1e-3)
     criterion = torch.nn.CrossEntropyLoss()
+    network_sgd, ep_range_sgd, loss_list_sgd, acc_list_sgd, gradient_passes_list_sgd = optimizers.train_standard(mnist_trainloader, mnist_testloader,
+                                                                                   cnn_model, optimizer=optimizer,
+                                                                                   criterion=criterion, epochs=100, lr=0.1,
+                                                                                   device=device, prefix='mnist_sgd')
+
     network, ep_range, loss_list, acc_list, gradient_passes_list = optimizers.saga(mnist_trainloader, mnist_testloader,
                                                                                    cnn_model, optimizer=optimizer,
-                                                                                   criterion=criterion, epochs=10,
+                                                                                   criterion=criterion, epochs=100, lr=0.1,
                                                                                    device=device, prefix='mnist_saga')
