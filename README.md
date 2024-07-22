@@ -1,2 +1,3 @@
-# vared
-Variance-reduced stochastic optimisation methods
+# Variance-reduced optimizers
+## Introduction
+  The size of datasets in modern machine learning problems renders a full evaluation of the gradients for all data points as required in full gradient descent (GD) expensive in terms of time and memory. Sampling some, but not all gradients, such as in stochastic gradient descent (SGD) and other stochastic optimization methods increases the efficiency of the optimization. However, stochastic optimizers introduce variance which adversly impacts convergence speed. Optimizers incorporating protocols for variance reduction can offer a compromise with marginally higher costs than SGD, but convergence rates approaching full gradient methods, especially on convex problems. In this work, the SAGA optimizer is implemented in the PyTorch framework and applied to classification problems. 
