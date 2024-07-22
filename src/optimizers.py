@@ -340,7 +340,7 @@ class SAGA2(Optimizer):
 
 def train_standard(trainloader, testloader, model, criterion, optimizer, epochs, lr=1e-3, device='cpu', prefix=''):
     """
-    Train neural network model
+    Normal procedure to train neural network model in PyTorch
     """
 
     network = model.to(device)
@@ -410,6 +410,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
          device='cpu', prefix=''):
     """
     Train neural network model with SAGA algorithm
+    based on https://arxiv.org/pdf/1407.0202
     """
 
     network = model
@@ -516,6 +517,12 @@ def get_gradients(params):
 
 
 def get_param_averages(gradients_list):
+    """
+    Computes the averages of the gradients over a data set for each parameter
+    :param gradients_list: list of list of parameter gradients,
+    i.e. gradients_list[i][j] contains gradients of j-th parameter for i-th data point
+    :return: list of averages of gradients over data points for each parameter
+    """
     num_data_points = len(gradients_list)
     if num_data_points == 0:
         raise ValueError("The gradients_list is empty.")
@@ -537,6 +544,17 @@ def get_param_averages(gradients_list):
 
 
 def saga_step(params, grad_average, grad_history, index, number_of_batches, lr=1e-3):
+    """
+    Performs one step according to the SAGA update rule
+    updates the gradient history and the
+    :param params: parameter of the model (e.g. model.parameters())
+    :param grad_average: list of tensors containing the gradient averages
+    :param grad_history: list of list of previously computed gradients
+    :param index: index of sample data point
+    :param number_of_batches: total number of batches
+    :param lr: learning rate
+    :return:
+    """
     factor = 1 / number_of_batches
     with torch.no_grad():
         for k, p in enumerate(params, 0):

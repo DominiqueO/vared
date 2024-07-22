@@ -70,7 +70,7 @@ def load_ijcnn1_to_dataloader(file_path, batch_size=32, shuffle=False):
     :return: torch dataloader
     """
     data = load_ijcnn1_to_numpy(file_path)
-    labels = torch.tensor(data[:, 0], dtype=torch.float32)
+    labels = torch.tensor(data[:, 0], dtype=torch.long)
     features = torch.tensor(data[:, 1:], dtype=torch.float32)
     torch_dataset = BinaryClassificationDataset(features, labels)
     dataloader = DataLoader(torch_dataset, batch_size=batch_size, shuffle=shuffle)
