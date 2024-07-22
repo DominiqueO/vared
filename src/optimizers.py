@@ -412,7 +412,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
     Train neural network model with SAGA algorithm
     """
 
-    network = model.to(device)
+    network = model
 
     print('Start training')
 
@@ -431,7 +431,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         inputs, labels = data
         # zero gradients
         network.zero_grad()
-        outputs = network(inputs.to(device))
+        outputs = network(inputs)
         loss = criterion(outputs, labels)
         # Compute average gradients over batch
         loss.backward()
@@ -456,7 +456,7 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
 
         inputs, labels = get_batch_by_index(trainloader, ik)
         network.zero_grad()
-        outputs = network(inputs.to(device))
+        outputs = network(inputs)
         loss = criterion(outputs, labels)
         loss_list.append(loss.item())
         loss.backward()
@@ -478,11 +478,11 @@ def saga(trainloader: DataLoader, testloader: DataLoader, model, optimizer, crit
         with torch.no_grad():
             for i, data in enumerate(testloader, 0):
                 inputs, labels = data
-                outputs = network(inputs.float().to(device))
+                outputs = network(inputs.float())
                 _, predictions = torch.max(outputs.data, 1)
 
                 # sums over Boolean tensor, where element at index i is 1 if predictions[i]==labels[i]
-                acc_batch = torch.sum(torch.eq(labels.to(device), predictions))
+                acc_batch = torch.sum(torch.eq(labels, predictions))
                 predictions_total += predictions.size(dim=0)
                 acc_total += acc_batch.item()
 
